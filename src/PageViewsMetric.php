@@ -10,7 +10,7 @@ use Spatie\Analytics\Period;
 
 class PageViewsMetric extends Value
 {
-    public $name = 'GA Page Views Today';
+    public $name = 'Page Views';
 
     /**
      * Calculate the value of the metric.
@@ -20,31 +20,35 @@ class PageViewsMetric extends Value
      */
     public function calculate(Request $request)
     {
+        $results = $this->pageViews($request->range);
+
         return $this
-            ->result($this->pageViewsForToday())
-            ->previous($this->pageViewsForYesterday());
+            ->result($results['current'])
+            ->previous($results['previous']);
     }
 
-    private function pageViewsForYesterday()
+    private function pageViews($range)
     {
         $analyticsData = app(Analytics::class)
-            ->fetchTotalVisitorsAndPageViews(Period::days(1));
+            ->fetchTotalVisitorsAndPageViews(
+                Period::days(($range * 2) - 1)
+            );
 
-        $yesterday = $analyticsData->first();
-        $today = $analyticsData->last();
+        $previous = 0;
+        $current = 0;
 
-        return $yesterday['pageViews'];
-    }
+        for ($i = 0; $i < $range; $i++) {
+            $previous += $analyticsData[$i]['pageViews'];
+        }
 
-    private function pageViewsForToday()
-    {
-        $analyticsData = app(Analytics::class)
-            ->fetchTotalVisitorsAndPageViews(Period::days(1));
+        for ($i = $range; $i < count($analyticsData); $i++) {
+            $current += $analyticsData[$i]['pageViews'];
+        }
 
-        $yesterday = $analyticsData->first();
-        $today = $analyticsData->last();
-
-        return $today['pageViews'];
+        return [
+            'current' => $current,
+            'previous' => $previous,
+        ];
     }
 
     /**
@@ -55,13 +59,11 @@ class PageViewsMetric extends Value
     public function ranges()
     {
         return [
-            // 1 => '1 day',
-            // 30 => '30 Days',
-            // 60 => '60 Days',
-            // 365 => '365 Days',
-            // 'MTD' => 'Month To Date',
-            // 'QTD' => 'Quarter To Date',
-            // 'YTD' => 'Year To Date',
+            1 => '1 day',
+            7 => '7 Days',
+            30 => '30 Days',
+            60 => '60 Days',
+            365 => '365 Days',
         ];
     }
 

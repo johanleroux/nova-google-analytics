@@ -10,7 +10,7 @@ use Spatie\Analytics\Period;
 
 class VisitorsMetric extends Value
 {
-    public $name = 'GA Visitors Today';
+    public $name = 'Visitors';
 
     /**
      * Calculate the value of the metric.
@@ -20,31 +20,35 @@ class VisitorsMetric extends Value
      */
     public function calculate(Request $request)
     {
+        $results = $this->visitors($request->range);
+
         return $this
-            ->result($this->visitorsForToday())
-            ->previous($this->visitorsForYesterday());
+            ->result($results['current'])
+            ->previous($results['previous']);
     }
 
-    private function visitorsForYesterday()
+    private function visitors($range)
     {
         $analyticsData = app(Analytics::class)
-            ->fetchTotalVisitorsAndPageViews(Period::days(1));
+            ->fetchTotalVisitorsAndPageViews(
+                Period::days(($range * 2) - 1)
+            );
 
-        $yesterday = $analyticsData->first();
-        $today = $analyticsData->last();
+        $previous = 0;
+        $current = 0;
 
-        return $yesterday['visitors'];
-    }
+        for ($i = 0; $i < $range; $i++) {
+            $previous += $analyticsData[$i]['visitors'];
+        }
 
-    private function visitorsForToday()
-    {
-        $analyticsData = app(Analytics::class)
-            ->fetchTotalVisitorsAndPageViews(Period::days(1));
+        for ($i = $range; $i < count($analyticsData); $i++) {
+            $current += $analyticsData[$i]['visitors'];
+        }
 
-        $yesterday = $analyticsData->first();
-        $today = $analyticsData->last();
-
-        return $today['visitors'];
+        return [
+            'current' => $current,
+            'previous' => $previous,
+        ];
     }
 
     /* @todo for older ranges:
@@ -57,7 +61,7 @@ class VisitorsMetric extends Value
                 'dimensions' => 'ga:yearMonth'
             ]
         );
-        */
+     */
 
     /**
      * Get the ranges available for the metric.
@@ -67,13 +71,11 @@ class VisitorsMetric extends Value
     public function ranges()
     {
         return [
-            // 1 => '1 day',
-            // 30 => '30 Days',
-            // 60 => '60 Days',
-            // 365 => '365 Days',
-            // 'MTD' => 'Month To Date',
-            // 'QTD' => 'Quarter To Date',
-            // 'YTD' => 'Year To Date',
+            1 => '1 day',
+            7 => '7 Days',
+            30 => '30 Days',
+            60 => '60 Days',
+            365 => '365 Days',
         ];
     }
 
